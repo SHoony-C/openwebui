@@ -1,0 +1,78 @@
+server {
+    listen 443 ssl;
+    server_name br-bot.whitest-forest.com;
+
+    ssl_certificate /etc/letsencrypt/live/br-bot.whitest-forest.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/br-bot.whitest-forest.com/privkey.pem;
+
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ecdh_curve secp384r1;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+
+    location / {
+        proxy_pass http://localhost:8080;  # OpenWebUI 실행 포트
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Connection "Upgrade";
+        proxy_cache_bypass $http_upgrade;
+    }
+
+    # ✅ WebSocket 지원 추가
+    location /api/chat {
+        proxy_pass http://localhost:8080;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "Upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # ✅ SSE (Server-Sent Events) 지원 추가
+    location /api/sse {
+        proxy_pass http://localhost:8080;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_buffering off;  # SSE가 끊기지 않도록 버퍼링 비활성화
+        proxy_cache off;
+    }
+
+
+    # ✅ WebSocket 전용 설정 (socket.io 경로 처리)
+    location /ws/socket.io/ {
+        proxy_pass http://localhost:8080;  # OpenWebUI 서버
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "Upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+        proxy_read_timeout 3600;
+        proxy_send_timeout 3600;
+    }
+
+
+    # ✅ WebSocket 및 SSE 관련 추가 설정
+    proxy_read_timeout 3600s;
+    proxy_send_timeout 3600s;
+    proxy_connect_timeout 3600s;
+
+    # 에러 페이지 설정 (선택 사항)
+    error_page 497 https://$host$request_uri; # HTTP 요청을 HTTPS로 리디렉트
+}
+
+# ✅ HTTP 요청을 HTTPS로 리디렉트
+server {
+    listen 80;
+    server_name br-bot.whitest-forest.com;
+    return 301 https://$host$request_uri;
+}
